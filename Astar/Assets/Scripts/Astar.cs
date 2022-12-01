@@ -16,14 +16,21 @@ public class Astar
     private List<Node> openNodes = new List<Node>();       //keeps track of nodes open for search
     private List<Node> closedNodes = new List<Node>();     //keeps track of nodes closed for search
     private Node current;
-
+    private Dictionary<Vector2Int, Node> nodesInGrid = new Dictionary<Vector2Int, Node>();
     public List<Vector2Int> FindPathToTarget(Vector2Int startPos, Vector2Int endPos, Cell[,] grid)
     {
         List<Vector2Int> pathToTarget = new List<Vector2Int>();
-        openNodes.Clear();
+        nodesInGrid.Clear();
         closedNodes.Clear();
+        openNodes.Clear();
+        foreach (Cell cell in grid)
+        {
+            Node n = CreateNode(startPos, endPos, cell.gridPosition, null);
+            nodesInGrid.Add(cell.gridPosition, n);
+        }
 
-        Node startNode = CreateNode(startPos, endPos, startPos, null);
+        Node startNode = nodesInGrid[startPos];  
+        Debug.Log(startNode);
 
         openNodes.Add(startNode);
 
@@ -73,7 +80,6 @@ public class Astar
         openNodes.Remove(currentNode); closedNodes.Add(currentNode);
 
         List<Node> neighbours = GetNeighbourNodes(currentNode.position, endPos, currentNode, grid);
-        //List<Node> sortedList = neighbours.OrderBy(n => n.FScore).ToList();
 
         foreach (Node neighbour in neighbours)
         {
@@ -84,14 +90,13 @@ public class Astar
 
             if (ContainsWall(currentNode, neighbour, grid))
             {
-                closedNodes.Add(neighbour);
                 continue;
             }
 
             if (neighbour.FScore <= currentNode.FScore || !openNodes.Contains(neighbour))
             {
-                neighbour.GScore = currentNode.GScore;
-                neighbour.HScore += currentNode.HScore;
+                neighbour.GScore = currentNode.GScore + 1;
+                neighbour.HScore = currentNode.HScore;
                 neighbour.parent = currentNode;
                 if (!openNodes.Contains(neighbour))
                 {
@@ -103,9 +108,8 @@ public class Astar
 
     private bool ContainsWall(Node currentNode, Node neighbourToCheck, Cell[,] grid)
     {
-        //check waar de muur zit relatief tot de speler
-        //als er een muur is, verwijderen uit lijst
         Vector2Int neighbourDir = currentNode.position - neighbourToCheck.position;
+        
         Cell neighbourCell = grid[neighbourToCheck.position.x, neighbourToCheck.position.y];
 
         if (neighbourDir.Equals(new Vector2Int(1, 0)))
@@ -136,6 +140,7 @@ public class Astar
                 return true;
             }
         }
+
         return false;
     }
 
@@ -152,11 +157,9 @@ public class Astar
         }
 
         List<Node> neighbourNodes = new List<Node>();
-
-        foreach (Cell cell in neighbourCells)
+        for (int i = 0; i < neighbourCells.Count; i++)
         {
-            Node node = CreateNode(startPos, endPos, cell.gridPosition, parent);
-            neighbourNodes.Add(node);
+            neighbourNodes.Add(nodesInGrid[neighbourCells[i].gridPosition]);
         }
 
         return neighbourNodes;
@@ -167,11 +170,24 @@ public class Astar
         Node newNode = new Node();
         newNode.position = position;
         newNode.parent = parent;
-        newNode.GScore = Vector2Int.Distance(startPos, position);
-        newNode.HScore = Vector2Int.Distance(endPos, position);
+        if(parent == null)
+        {
+            newNode.GScore = GetScore(startPos, position);
+        }
+        else
+        {
+            newNode.GScore = parent.GScore + GetScore(startPos, position);
+        }
+
+        newNode.HScore = GetScore(endPos, position);
 
         Debug.Log("Node created");
         return newNode;
+    }
+
+    public int GetScore(Vector2Int pos, Vector2Int targetPos)
+    {
+        return (int)Mathf.Abs(pos.x - targetPos.x) + Mathf.Abs(pos.y - targetPos.y);
     }
 
     /// <summary>
